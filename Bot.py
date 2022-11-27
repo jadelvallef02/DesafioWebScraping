@@ -4,12 +4,13 @@ import discord
 import bs4
 import requests
 from dotenv import load_dotenv
-from datetime import date
 from datetime import datetime
 from pathlib import Path
 import json
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
-
+#m.select('.avg-rating')[0].text)
 # 1
 from discord.ext import commands
 
@@ -22,9 +23,23 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Client(intents=intents)
 
+
+async def pelisDiarias():
+    c = bot.get_channel(809776356883300393)
+    movies = main.peliculasDiarias()
+    if len(movies) > 0:
+        for m in movies:
+            await c.send(m)
+    else:
+        await c.send("No se han extrenado peliculas hoy.")
+
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(pelisDiarias, CronTrigger(day="*", hour="10", minute="0", second="0"))
+    scheduler.start()
+
 
 @bot.event
 async def on_message(message):
@@ -32,7 +47,7 @@ async def on_message(message):
     if message.content == "!fichero":
         base = Path.home()
         rutaFichero = Path(base, 'peliculas.json')
-        archivo = open(rutaFichero, 'a')
+        archivo = open(rutaFichero, 'r+')
         url = 'https://www.filmaffinity.com/es/rdcat.php?id=upc_th_es'
         result = requests.get(url)
         soup = bs4.BeautifulSoup(result.text, 'lxml')
@@ -53,7 +68,8 @@ async def on_message(message):
             }
             lista2.append(pelicula)
         json.dump(lista2, archivo)
-        await message.channel.send(file=discord.file())
+        file = discord.File(archivo)
+        await message.channel.send(file = file)
 
 
     if message.content == "!punto1":
@@ -475,7 +491,27 @@ async def on_message(message):
                         listaActores.append(n.text)
                     embed2.add_field(name="Actores", value=(listaActores))
                     await message.channel.send(embed=embed2)
-bot.run('MTA0MDE4NDQ2MTk0MzM4MjAyNg.GVmc54.oQVwVlfD1WuQYE50Jss4stcIbE2jvRT1eeZjgM')
+
+    if message.content == "!punto4":
+            embed = discord.Embed(title=f"Top Peliculas", description="Ranking de las mejores peliculas",
+                              timestamp=datetime.now(), color=discord.Color.blue())
+            await message.channel.send(embed=embed)
+            url = 'https://www.filmaffinity.com/es/ranking.php?rn=ranking_2022_top50movies&chv=1'
+            result = requests.get(url)
+            soup = bs4.BeautifulSoup(result.text, 'lxml')
+            movies = soup.select('.movie-poster-grid')
+            contador = 1
+            for m in movies:
+                embed2 = discord.Embed(title=f"Top {str(contador)}",
+                                       timestamp=datetime.now(), color=discord.Color.blue())
+                titulo = m.select('.mc-oposter')[0].attrs['title']
+                puntuacion = m.select('.rating-wrapper .avgrat-box')[0].text
+                embed2.add_field(name=f"{titulo}", value=(puntuacion))
+                contador=contador + 1
+                await message.channel.send(embed=embed2)
+
+
+bot.run('MTA0MDE4NDQ2MTk0MzM4MjAyNg.GvXBmO.-OOHv08EC0gbDVM8wu-37DQJXF43t0Bjih4k2A')
 
 
 
